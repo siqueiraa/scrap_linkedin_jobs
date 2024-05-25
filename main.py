@@ -511,7 +511,7 @@ class ScrapLinkedin:
 if __name__ == '__main__':
     scrap = ScrapLinkedin("", "")
     scrap.parse_arguments(sys.argv[1:])
-    #scrap.scrap_ids()
+    scrap.scrap_ids()
     scrap.scrap_details()
     scrap.navigate_jobs()
 
