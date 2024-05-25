@@ -1,0 +1,6 @@
+requests==2.31.0
+selenium==4.15.2
+pyyaml
+beautifulsoup4==4.12.2
+pytz
+langid
