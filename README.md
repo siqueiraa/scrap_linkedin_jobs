@@ -50,8 +50,3 @@ Script Details
 Contact
 
 For any questions or suggestions, feel free to contact me on LinkedIn: [Rafael Siqueira](https://www.linkedin.com/in/rafael-siqueiraa)
-
-
-License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
