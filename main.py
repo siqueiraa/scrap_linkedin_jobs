@@ -183,7 +183,7 @@ class ScrapLinkedin:
         return Job_Ids_on_the_page
 
     def request_job_codes(self, page):
-        url = f"https://www.linkedin.com/jobs/search/?keywords={self.keywords}&location={self.location}&start={page}&sortBy=DD{'&f_WT=2' if self.only_remote else ''}{'&f_TPR=r2592000' if self.more_recents else ''}"
+        url = f"https://www.linkedin.com/jobs/search/?keywords={self.keywords}&location={self.location}&start={page}&sortBy=DD{'&f_WT=2' if self.only_remote else ''}{'&f_TPR=r604800' if self.more_recents else ''}"
         url = requests.utils.requote_uri(url)
         self.driver.get(url)
         self.scroll_to_bottom()
@@ -452,19 +452,15 @@ class ScrapLinkedin:
                        SELECT *,
                             "https://www.linkedin.com/jobs/view/"||Job_ID AS link
                             FROM jobs j 
-                            WHERE "language" IN ('en', 'br') 
-                            AND date_post >= ?
+                            WHERE "language" IN ('en', 'pt') 
                             AND type_work IN ('Remote', '')
                             AND "level" NOT IN ('Director', 'Entry level')
-                            AND sector NOT IN ('Staffing and Recruiting')
-                            AND job_title  NOT LIKE '%fullstack%'
-                            AND fit NOT LIKE '%Stand out%'
-                            AND time_work IS NOT NULL
+                            AND (time_work not in ('Contract') or language in ('br','pt'))
                             AND applied IS null
                             ORDER BY date_post DESC   
                        """
         cursor = self.conn.cursor()
-        cursor.execute(sql, (formatted_date,))
+        cursor.execute(sql)
         jobs = cursor.fetchall()
         return jobs
 
@@ -473,11 +469,76 @@ class ScrapLinkedin:
         cursor.execute("UPDATE jobs SET applied = 1 WHERE Job_ID = ?", (job_id,))
         self.conn.commit()
 
+    def active_window(self):
+        window_handle = self.driver.window_handles[0]
+        self.driver.switch_to.window(window_handle)
+
+    def wait_for_page_load(self, timeout=10):
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: d.execute_script('return document.readyState') == 'complete'
+            )
+            return True
+        except Exception as e:
+            logging.error(f"Error to load page: {e}")
+            return False
+
+    def filter_job(self, job):
+        keywords_to_exclude_title = ['fullstack', 'principal', 'mobile', 'lead', 'security', 'reliability', 'java',
+                                     'react', 'Cloud', 'DevOps', 'azure', 'full-stack',
+                                     'located', 'sales', 'node', 'head', 'sap', 'full stack',
+                                     '.NET', 'ui', 'ux', 'dba', 'manager', 'frontend', 'ios', 'staff',
+                                     'Intern', 'validation', 'Embedded', 'firmware', 'Infrastructure',
+                                     'Android', 'Flutter', 'coach', 'Consultant', 'DevSecOps', 'ml', 'llm',
+                                     'machine', 'scala', 'databricks', 'spark', 'ruby', 'Electrical',
+
+
+                                     ]
+        keywords_to_exclude_description = ['react', 'Experience with Node.js', '.NET', 'php', 'vue',
+                                           'angular', 'frontend']
+
+        job_title = job[5].lower() if job[5] else ''
+        if any(keyword.lower() in job_title for keyword in keywords_to_exclude_title):
+            return False
+
+        job_description = job[3].lower()
+        if any(keyword.lower() in job_description for keyword in keywords_to_exclude_description):
+            return False
+        return True
+
+    def accept_applications(self):
+        self.wait_for_page_load()
+        time.sleep(0.5)
+        soup = BeautifulSoup(self.driver.page_source, "html.parser")
+        text = soup.find("span", {"class": "artdeco-inline-feedback__message"})
+        #tittle = soup.find("div", class_="t-24 job-details-jobs-unified-top-card__job-title")
+        tittle = soup.select_one(".t-24.job-details-jobs-unified-top-card__job-title")
+        if not tittle:
+            logging.info("Job deleted.")
+            return False
+        text = text.get_text(strip=True) if text else ''
+        if text == 'No longer accepting applications':
+            return False
+        return True
+
     def navigate_jobs(self):
+        self.active_window()
         jobs = self.fetch_jobs()
+        logging.info(f"Starting navigate for {len(jobs)} jobs")
         for job in jobs:
             job_id, link = job[0], job[-1]
+            if not self.filter_job(job):
+                logging.info(f"{job_id} - Filtered")
+                self.update_job_status(job_id)
+                continue
             self.driver.get(link)
+            if not self.accept_applications():
+                logging.info(f"{job_id} - Not accept applications")
+                self.update_job_status(job_id)
+                random_sleep_duration = random.uniform(0.1, 2.0)
+                time.sleep(random_sleep_duration)
+                continue
+            self.active_window()
             logging.info(f"Opened job link: {link}")
             user_input = input("Press Enter to open the next job link or type 'exit' to quit: \n")
             if user_input.lower() == 'exit':
@@ -509,10 +570,26 @@ class ScrapLinkedin:
 
 
 if __name__ == '__main__':
-    scrap = ScrapLinkedin("", "")
-    scrap.parse_arguments(sys.argv[1:])
-    scrap.scrap_ids()
+    parameters = []
+    parameters.append(dict(keyword='python', location='Brazil'))
+    parameters.append(dict(keyword='data analytics', location='Brazil'))
+    parameters.append(dict(keyword='engenheiro de dados', location='Brazil'))
+    parameters.append(dict(keyword='data engineer', location='European Economic Area'))
+    parameters.append(dict(keyword='data engineer', location='Brazil'))
+    parameters.append(dict(keyword='data engineer', location='United Arab Emirates'))
+    parameters.append(dict(keyword='business intelligence', location='Brazil'))
+
+    scrap = None
+    """
+    for x in parameters:
+        logging.info(f"Looking jobs {x['keyword']} - {x['location']}")
+        scrap = ScrapLinkedin(x['keyword'], x['location'])
+        scrap.parse_arguments(sys.argv[1:])
+        scrap.scrap_ids()
     scrap.scrap_details()
+    """
+    scrap = ScrapLinkedin('', '')
     scrap.navigate_jobs()
+
 
 
