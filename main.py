@@ -574,10 +574,10 @@ if __name__ == '__main__':
     parameters.append(dict(keyword='python', location='Brazil'))
     parameters.append(dict(keyword='data analytics', location='Brazil'))
     parameters.append(dict(keyword='engenheiro de dados', location='Brazil'))
-    parameters.append(dict(keyword='data engineer', location='European Economic Area'))
-    parameters.append(dict(keyword='data engineer', location='Brazil'))
-    parameters.append(dict(keyword='data engineer', location='United Arab Emirates'))
     parameters.append(dict(keyword='business intelligence', location='Brazil'))
+    parameters.append(dict(keyword='data engineer', location='Brazil'))
+    parameters.append(dict(keyword='data engineer', location='European Economic Area'))
+    parameters.append(dict(keyword='data engineer', location='United Arab Emirates'))
 
     scrap = None
     """
